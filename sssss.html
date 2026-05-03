@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Veltrak OCPP Simulator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #0f0f1a;
+      color: #ffffff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .title { color: #a78bfa; font-size: 1.6rem; font-weight: 700; margin-bottom: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .card {
+      background: #17172a;
+      border: 1px solid #2a2a46;
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    }
+    .top-card { margin-bottom: 14px; }
+    select, input {
+      background: #111123;
+      color: #fff;
+      border: 1px solid #34345e;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    input { min-width: 260px; }
+    select { min-width: 210px; }
+    button {
+      background: linear-gradient(135deg, #6D41E0, #F472B6);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: transparent;
+      border: 1px solid #6D41E0;
+      color: #c4b5fd;
+    }
+    button.warn { background: linear-gradient(135deg, #dc2626, #f97316); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .status-dot {
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+    .connected { color: #4ade80; border-color: #4ade80; background: #052e16; }
+    .disconnected { color: #f87171; border-color: #f87171; background: #2b1111; }
+    .connecting { color: #facc15; border-color: #facc15; background: #2a200d; }
+
+    .panels {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .panel-title { font-size: 14px; color: #c4b5fd; margin-bottom: 10px; font-weight: 600; }
+    .kv { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: #d1d5db; }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .b-available { background: #14532d; color: #86efac; }
+    .b-charging { background: #312e81; color: #a5b4fc; }
+    .b-faulted { background: #7f1d1d; color: #fca5a5; }
+    .b-unavailable { background: #374151; color: #d1d5db; }
+
+    .section-title {
+      margin: 16px 0 8px;
+      color: #ddd6fe;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .btn-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .log-head { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; margin-bottom: 8px; }
+    #log {
+      background: #090914;
+      border: 1px solid #2f2f54;
+      border-radius: 12px;
+      padding: 12px;
+      height: 290px;
+      overflow-y: auto;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .sent { color: #F472B6; }
+    .recv { color: #4ade80; }
+    .warn-t { color: #facc15; }
+    .error { color: #f87171; }
+    .info { color: #c4b5fd; }
+
+    @media (max-width: 860px) {
+      .panels { grid-template-columns: 1fr; }
+      input { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">⚡ Veltrak OCPP 1.6J Simulator</h1>
+
+    <div class="card top-card">
+      <div class="row">
+        <select id="chargerSelect">
+          <option value="VT-CHN-AN-001-FC1A">VT-CHN-AN-001-FC1A (Anna Nagar)</option>
+          <option value="VT-CHN-AN-001-FC1B">VT-CHN-AN-001-FC1B (Anna Nagar)</option>
+          <option value="VT-CHN-OMR-002-RC2A">VT-CHN-OMR-002-RC2A (OMR)</option>
+          <option value="VT-CHN-OMR-002-AC2B">VT-CHN-OMR-002-AC2B (OMR)</option>
+          <option value="VT-CHN-OMR-002-AC2C">VT-CHN-OMR-002-AC2C (OMR)</option>
+          <option value="VT-BLR-HSR-001-UF3A">VT-BLR-HSR-001-UF3A (HSR)</option>
+          <option value="VT-BLR-HSR-001-FC3B">VT-BLR-HSR-001-FC3B (HSR)</option>
+          <option value="VT-MUM-AND-001-FC4A">VT-MUM-AND-001-FC4A (Andheri)</option>
+        </select>
+        <input id="wsUrl" value="" />
+        <button id="connectBtn">🔌 Connect</button>
+        <button id="disconnectBtn" class="warn">✖ Disconnect</button>
+        <span id="wsStatus" class="status-dot disconnected">● Disconnected</span>
+      </div>
+    </div>
+
+    <div class="panels">
+      <div class="card">
+        <div class="panel-title">Gun 1 Panel</div>
+        <div id="g1Status" class="badge b-unavailable">Unavailable</div>
+        <div class="kv"><span>Transaction ID</span><strong id="g1Tx">—</strong></div>
+        <div class="kv"><span>Latest Wh</span><strong id="g1Wh">0</strong></div>
+      </div>
+      <div class="card">
+        <div class="panel-title">Gun 2 Panel</div>
+        <div id="g2Status" class="badge b-unavailable">Unavailable</div>
+        <div class="kv"><span>Transaction ID</span><strong id="g2Tx">—</strong></div>
+        <div class="kv"><span>Latest Wh</span><strong id="g2Wh">0</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Manual Buttons</div>
+      <div class="btn-wrap">
+        <button id="bootBtn" class="secondary">BootNotification</button>
+        <button id="hbBtn" class="secondary">Heartbeat</button>
+        <button id="authBtn" class="secondary">Authorize</button>
+        <button id="startBtn" class="secondary">StartTransaction</button>
+        <button id="meterBtn" class="secondary">MeterValues</button>
+        <button id="stopBtn" class="secondary">StopTransaction</button>
+      </div>
+
+      <div class="section-title">Status (Gun 1)</div>
+      <div class="btn-wrap">
+        <button id="g1Avail">Gun1 Available</button>
+        <button id="g1Charge">Gun1 Charging</button>
+        <button id="g1Fault">Gun1 Faulted</button>
+      </div>
+
+      <div class="section-title">Status (Gun 2)</div>
+      <div class="btn-wrap">
+        <button id="g2Avail">Gun2 Available</button>
+        <button id="g2Charge">Gun2 Charging</button>
+        <button id="g2Fault">Gun2 Faulted</button>
+      </div>
+
+      <div class="section-title">Auto Simulate</div>
+      <div class="btn-wrap">
+        <button id="autoGun1">▶ Full Session Gun 1</button>
+        <button id="autoGun2">▶ Full Session Gun 2</button>
+      </div>
+    </div>
+
+    <div class="log-head">
+      <div class="section-title" style="margin:0">Message Log</div>
+      <button id="clearLog" class="secondary">Clear</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    let ws = null;
+    let msgCounter = 1;
+    const pendingStarts = new Map();
+    const gunState = {
+      1: { status: 'Unavailable', txId: null, meterWh: 0, active: false },
+      2: { status: 'Unavailable', txId: null, meterWh: 0, active: false }
+    };
+
+    const el = {
+      select: document.getElementById('chargerSelect'),
+      wsUrl: document.getElementById('wsUrl'),
+      wsStatus: document.getElementById('wsStatus'),
+      log: document.getElementById('log'),
+      g1Status: document.getElementById('g1Status'),
+      g2Status: document.getElementById('g2Status'),
+      g1Tx: document.getElementById('g1Tx'),
+      g2Tx: document.getElementById('g2Tx'),
+      g1Wh: document.getElementById('g1Wh'),
+      g2Wh: document.getElementById('g2Wh')
+    };
+
+    const OCPP_BASE_URL = 'ws://localhost:8080/ocpp';
+    el.wsUrl.value = `${OCPP_BASE_URL}/${encodeURIComponent(el.select.value)}`;
+
+    function now() {
+      return new Date().toLocaleTimeString('en-IN', { hour12: false });
+    }
+
+    function log(text, type = 'info') {
+      const row = document.createElement('div');
+      row.className = type;
+      row.textContent = `[${now()}] ${text}`;
+      el.log.appendChild(row);
+      el.log.scrollTop = el.log.scrollHeight;
+    }
+
+    function setWsStatus(state) {
+      if (state === 'connected') {
+        el.wsStatus.className = 'status-dot connected';
+        el.wsStatus.textContent = '● Connected';
+      } else if (state === 'connecting') {
+        el.wsStatus.className = 'status-dot connecting';
+        el.wsStatus.textContent = '● Connecting';
+      } else {
+        el.wsStatus.className = 'status-dot disconnected';
+        el.wsStatus.textContent = '● Disconnected';
+      }
+    }
+
+    function statusClass(status) {
+      const s = (status || '').toLowerCase();
+      if (s === 'available') return 'badge b-available';
+      if (s === 'charging') return 'badge b-charging';
+      if (s === 'faulted') return 'badge b-faulted';
+      return 'badge b-unavailable';
+    }
+
+    function refreshPanels() {
+      el.g1Status.className = statusClass(gunState[1].status);
+      el.g2Status.className = statusClass(gunState[2].status);
+      el.g1Status.textContent = gunState[1].status;
+      el.g2Status.textContent = gunState[2].status;
+      el.g1Tx.textContent = gunState[1].txId ?? '—';
+      el.g2Tx.textContent = gunState[2].txId ?? '—';
+      el.g1Wh.textContent = String(gunState[1].meterWh);
+      el.g2Wh.textContent = String(gunState[2].meterWh);
+    }
+
+    function uid(prefix = 'm') {
+      return `${prefix}-${msgCounter++}`;
+    }
+
+    function ensureOpen() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log('⚠ WebSocket is not connected.', 'warn-t');
+        return false;
+      }
+      return true;
+    }
+
+    function sendOcpp(action, payload) {
+      if (!ensureOpen()) return null;
+      const id = uid();
+      const packet = [2, id, action, payload];
+      ws.send(JSON.stringify(packet));
+      log(`→ SEND [${action}] ${JSON.stringify(packet)}`, 'sent');
+      return id;
+    }
+
+    function sendStatus(connectorId, status) {
+      gunState[connectorId] && (gunState[connectorId].status = status);
+      refreshPanels();
+      return sendOcpp('StatusNotification', {
+        connectorId,
+        errorCode: 'NoError',
+        status,
+        timestamp: new Date().toISOString(),
+        info: '',
+        vendorId: 'Belectriq'
+      });
+    }
+
+    function sendBoot() {
+      return sendOcpp('BootNotification', {
+        chargePointVendor: 'Belectriq',
+        chargePointModel: 'DC-120kW-CCS2',
+        chargePointSerialNumber: el.select.value,
+        chargeBoxSerialNumber: `${el.select.value}-CB`,
+        firmwareVersion: '1.0.0',
+        iccid: '',
+        imsi: ''
+      });
+    }
+
+    function sendHeartbeat() {
+      return sendOcpp('Heartbeat', {});
+    }
+
+    function sendAuthorize() {
+      return sendOcpp('Authorize', { idTag: 'OPERATOR' });
+    }
+
+    function sendStart(connectorId, idTag = 'OPERATOR') {
+      const startId = sendOcpp('StartTransaction', {
+        connectorId,
+        idTag,
+        meterStart: 1000,
+        timestamp: new Date().toISOString()
+      });
+      if (startId) pendingStarts.set(startId, connectorId);
+      return startId;
+    }
+
+    function sendMeter(connectorId) {
+      const txId = gunState[connectorId].txId;
+      if (!txId) {
+        log(`⚠ No transaction for gun ${connectorId}`, 'warn-t');
+        return null;
+      }
+      return sendOcpp('MeterValues', {
+        connectorId,
+        transactionId: Number(txId),
+        meterValue: [{
+          timestamp: new Date().toISOString(),
+          sampledValue: [
+            { value: String(gunState[connectorId].meterWh), measurand: 'Energy.Active.Import.Register', unit: 'Wh' },
+            { value: '22000', measurand: 'Power.Active.Import', unit: 'W' },
+            { value: '400', measurand: 'Voltage', unit: 'V' },
+            { value: '55', measurand: 'Current.Import', unit: 'A' }
+          ]
+        }]
+      });
+    }
+
+    function sendStop(connectorId, txIdOverride = null, reason = 'Remote') {
+      const txId = txIdOverride ?? gunState[connectorId].txId;
+      if (!txId) {
+        log(`⚠ No transaction to stop for gun ${connectorId}`, 'warn-t');
+        return null;
+      }
+      const meterStop = (gunState[connectorId].meterWh || 0) + 5000;
+      gunState[connectorId].meterWh = meterStop;
+      refreshPanels();
+      return sendOcpp('StopTransaction', {
+        transactionId: Number(txId),
+        meterStop,
+        timestamp: new Date().toISOString(),
+        reason
+      });
+    }
+
+    function connect() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        log('⚠ Already connected.', 'warn-t');
+        return;
+      }
+      const url = el.wsUrl.value.trim();
+      if (!url) return;
+
+      setWsStatus('connecting');
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        setWsStatus('connected');
+        log(`✅ Connected: ${url}`, 'recv');
+
+        setTimeout(() => sendBoot(), 500);
+        setTimeout(() => sendStatus(0, 'Available'), 1000);
+        setTimeout(() => sendStatus(1, 'Available'), 1500);
+        setTimeout(() => sendStatus(2, 'Available'), 2000);
+      };
+
+      ws.onmessage = (e) => {
+        log(`← RECV ${e.data}`, 'recv');
+        let msg;
+        try {
+          msg = JSON.parse(e.data);
+        } catch {
+          return;
+        }
+
+        if (!Array.isArray(msg)) return;
+        const type = msg[0];
+
+        if (type === 2) {
+          const action = msg[2];
+          const payload = msg[3] || {};
+
+          if (action === 'RemoteStartTransaction') {
+            const connectorId = Number(payload.connectorId || 1);
+            log(`← REMOTE START: connector ${connectorId}`, 'recv');
+            setTimeout(() => {
+              sendStart(connectorId, 'OPERATOR');
+              gunState[connectorId].status = 'Charging';
+              gunState[connectorId].active = true;
+              refreshPanels();
+            }, 1500);
+          }
+
+          if (action === 'RemoteStopTransaction') {
+            const txId = Number(payload.transactionId || 0);
+            const connectorId = [1, 2].find((g) => Number(gunState[g].txId) === txId) || 1;
+            log(`← REMOTE STOP: txId ${txId}`, 'recv');
+            setTimeout(() => {
+              sendStop(connectorId, txId, 'Remote');
+              gunState[connectorId].status = 'Available';
+              gunState[connectorId].active = false;
+              refreshPanels();
+            }, 1000);
+          }
+        }
+
+        if (type === 3) {
+          const msgId = msg[1];
+          const payload = msg[2] || {};
+
+          if (pendingStarts.has(msgId)) {
+            const connectorId = pendingStarts.get(msgId);
+            const txId = payload.transactionId ?? null;
+            if (connectorId && txId !== null) {
+              gunState[connectorId].txId = String(txId);
+              gunState[connectorId].status = 'Charging';
+              gunState[connectorId].active = true;
+              gunState[connectorId].meterWh = Math.max(gunState[connectorId].meterWh, 1000);
+              refreshPanels();
+            }
+            pendingStarts.delete(msgId);
+          }
+        }
+      };
+
+      ws.onerror = () => log('❌ WebSocket error', 'error');
+      ws.onclose = (e) => {
+        setWsStatus('disconnected');
+        log(`🔌 Disconnected (code ${e.code})`, 'warn-t');
+      };
+    }
+
+    function disconnect() {
+      if (ws) ws.close();
+    }
+
+    async function runFullSession(gun) {
+      if (!ensureOpen()) return;
+      sendAuthorize();
+      await sleep(600);
+      sendStatus(gun, 'Available');
+      await sleep(600);
+      sendStart(gun, 'OPERATOR');
+      await sleep(1200);
+      gunState[gun].status = 'Charging';
+      gunState[gun].active = true;
+      refreshPanels();
+
+      for (let i = 0; i < 3; i++) {
+        await sleep(1200);
+        gunState[gun].meterWh += 2000;
+        refreshPanels();
+        sendMeter(gun);
+      }
+
+      await sleep(1000);
+      sendStop(gun, null, 'Remote');
+      gunState[gun].status = 'Available';
+      gunState[gun].active = false;
+      refreshPanels();
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    setInterval(() => {
+      [1, 2].forEach((gun) => {
+        if (gunState[gun].active && gunState[gun].txId) {
+          gunState[gun].meterWh += 500;
+          refreshPanels();
+          sendMeter(gun);
+        }
+      });
+    }, 3000);
+
+    el.select.addEventListener('change', () => {
+      el.wsUrl.value = `${OCPP_BASE_URL}/${encodeURIComponent(el.select.value)}`;
+    });
+
+    document.getElementById('connectBtn').addEventListener('click', connect);
+    document.getElementById('disconnectBtn').addEventListener('click', disconnect);
+
+    document.getElementById('bootBtn').addEventListener('click', sendBoot);
+    document.getElementById('hbBtn').addEventListener('click', sendHeartbeat);
+    document.getElementById('authBtn').addEventListener('click', sendAuthorize);
+    document.getElementById('startBtn').addEventListener('click', () => sendStart(1));
+    document.getElementById('meterBtn').addEventListener('click', () => sendMeter(1));
+    document.getElementById('stopBtn').addEventListener('click', () => sendStop(1));
+
+    document.getElementById('g1Avail').addEventListener('click', () => sendStatus(1, 'Available'));
+    document.getElementById('g1Charge').addEventListener('click', () => sendStatus(1, 'Charging'));
+    document.getElementById('g1Fault').addEventListener('click', () => sendStatus(1, 'Faulted'));
+
+    document.getElementById('g2Avail').addEventListener('click', () => sendStatus(2, 'Available'));
+    document.getElementById('g2Charge').addEventListener('click', () => sendStatus(2, 'Charging'));
+    document.getElementById('g2Fault').addEventListener('click', () => sendStatus(2, 'Faulted'));
+
+    document.getElementById('autoGun1').addEventListener('click', () => runFullSession(1));
+    document.getElementById('autoGun2').addEventListener('click', () => runFullSession(2));
+    document.getElementById('clearLog').addEventListener('click', () => { el.log.innerHTML = ''; });
+
+    refreshPanels();
+    log('🚀 Simulator ready. Select charger and connect.', 'info');
+  </script>
+</body>
+</html>

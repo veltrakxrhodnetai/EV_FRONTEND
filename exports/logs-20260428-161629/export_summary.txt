@@ -1,0 +1,17 @@
+﻿Exported at: 2026-04-28T16:16:30.0106712+05:30
+Source workspace: c:\EV veltrak\ev-csms
+
+Files:
+
+Name                    Length LastWriteTime      
+----                    ------ -------------      
+backend.log           45219602 27-04-2026 15:39:05
+chargers.csv               794 28-04-2026 16:16:29
+charging_sessions.csv    15882 28-04-2026 16:16:29
+compile_output.txt         970 06-03-2026 15:07:02
+export_summary.txt         102 28-04-2026 16:16:30
+ocpp_message_logs.csv   299620 28-04-2026 16:16:29
+postgres_docker.log     705054 28-04-2026 16:16:30
+
+
+
