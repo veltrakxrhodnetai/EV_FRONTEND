@@ -24,6 +24,21 @@ function duration(start: string | undefined | null, end: string | undefined | nu
   return `${s}s`;
 }
 
+function isOnlineSettlementPending(bill: BillSummary | null): boolean {
+  if (!bill) {
+    return true;
+  }
+
+  const paymentMode = (bill.paymentMode || '').toUpperCase();
+  const paymentStatus = (bill.paymentStatus || '').toUpperCase();
+
+  if (paymentMode !== 'ONLINE') {
+    return false;
+  }
+
+  return !['CAPTURED', 'SETTLEMENT_FAILED', 'PREAUTH_RELEASED'].includes(paymentStatus);
+}
+
 export default function OwnerBillingPage(): JSX.Element {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -33,8 +48,37 @@ export default function OwnerBillingPage(): JSX.Element {
 
   useEffect(() => {
     if (!id) return;
-    getBill(id).then(setBill).catch(() => undefined);
-  }, [id]);
+
+    let mounted = true;
+    let intervalId: number | undefined;
+
+    const loadBill = async () => {
+      try {
+        const data = await getBill(id);
+        if (mounted) {
+          setBill(data);
+        }
+      } catch {
+        // Keep existing bill on transient polling failures.
+      }
+    };
+
+    void loadBill();
+
+    intervalId = window.setInterval(() => {
+      if (!isOnlineSettlementPending(bill)) {
+        return;
+      }
+      void loadBill();
+    }, 2000);
+
+    return () => {
+      mounted = false;
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [bill, id]);
 
   // If already paid when page loads (from log), set completedAt from endedAt as fallback
   useEffect(() => {
@@ -121,8 +165,33 @@ export default function OwnerBillingPage(): JSX.Element {
               <span>Total</span>
               <span>₹{Number(bill?.totalAmount || 0).toFixed(2)}</span>
             </div>
+            <div className="flex justify-between rounded-lg bg-[#6D41E010] px-3 py-2 font-semibold text-[#6D41E0]">
+              <span>Charged Amount</span>
+              <span>₹{Number(bill?.chargedAmount || 0).toFixed(2)}</span>
+            </div>
+            {Number(bill?.preauthAmount || 0) > 0 && (
+              <div className="flex justify-between text-gray-700">
+                <span>Pre-authorized Hold</span>
+                <span>₹{Number(bill?.preauthAmount || 0).toFixed(2)}</span>
+              </div>
+            )}
+            {Number(bill?.refundAmount || 0) > 0 && (
+              <div className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">
+                <span>Refund Amount</span>
+                <span>₹{Number(bill?.refundAmount || 0).toFixed(2)}</span>
+              </div>
+            )}
+            <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Payment Status: {bill?.paymentStatus || '-'}
+            </div>
           </div>
         </div>
+
+        {isOnlineSettlementPending(bill) && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+            Final charge and refund are being updated. This bill will refresh automatically.
+          </div>
+        )}
 
         {/* Payment status / completion */}
         {isPaid ? (

@@ -13,6 +13,7 @@ import {
   unlockAdminConnector,
   type AdminActiveSession,
 } from '../../api/admin';
+import { cancelSession } from '../../api/sessions';
 
 type Station = { id: number; name: string; stationCode: string };
 type Charger = { 
@@ -67,6 +68,7 @@ export default function AdminChargersPage(): JSX.Element {
   const [resetAllLoading, setResetAllLoading] = useState(false);
   const [actioningChargerId, setActioningChargerId] = useState<number | null>(null);
   const [actioningConnectorId, setActioningConnectorId] = useState<number | null>(null);
+  const [actioningSessionId, setActioningSessionId] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [liveSessions, setLiveSessions] = useState<AdminActiveSession[]>([]);
@@ -472,6 +474,27 @@ export default function AdminChargersPage(): JSX.Element {
     await loadLiveSessions();
   };
 
+  const handleCancelPendingLiveSession = async (session: AdminActiveSession) => {
+    if (!['PENDING_VERIFICATION', 'PENDING_PAYMENT'].includes(session.status)) {
+      setError(`Session ${session.sessionId} cannot be cancelled in status ${session.status}.`);
+      return;
+    }
+
+    try {
+      setActioningSessionId(session.sessionId);
+      setError('');
+      const response = await cancelSession(session.sessionId);
+      setSuccess(`${response.message}: #${response.sessionId}`);
+      await loadLiveSessions();
+      await load();
+      setTimeout(() => setSuccess(''), 3500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel pending session');
+    } finally {
+      setActioningSessionId(null);
+    }
+  };
+
   const getStationName = (stationId: number) => {
     const station = stations.find(s => s.id === stationId);
     return station ? station.name : 'Unknown';
@@ -787,6 +810,8 @@ export default function AdminChargersPage(): JSX.Element {
                     ? chargers.find((item) => item.ocppIdentity === session.chargerOcppIdentity)
                     : null;
                   const isBusy = mappedCharger ? actioningChargerId === mappedCharger.id : false;
+                  const isSessionBusy = actioningSessionId === session.sessionId;
+                  const canCancelPending = ['PENDING_VERIFICATION', 'PENDING_PAYMENT'].includes(session.status);
                   const canReset = mappedCharger && mappedCharger.communicationStatus === 'ONLINE';
 
                   return (
@@ -810,6 +835,17 @@ export default function AdminChargersPage(): JSX.Element {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
+                        {canCancelPending && (
+                          <button
+                            onClick={() => {
+                              void handleCancelPendingLiveSession(session);
+                            }}
+                            disabled={isSessionBusy}
+                            className="mr-3 text-rose-600 hover:text-rose-800 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isSessionBusy ? 'Cancelling...' : 'Cancel Pending'}
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             void handleResetFromLiveSession(session);

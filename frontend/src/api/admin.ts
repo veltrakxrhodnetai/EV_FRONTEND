@@ -188,6 +188,11 @@ export async function createAdminConnector(payload: Record<string, unknown>) {
   return response.data;
 }
 
+export async function updateAdminConnector(connectorId: number, connectorType: string, maxPowerKw: number) {
+  const response = await adminApi.put(`/api/admin/connectors/${connectorId}`, { connectorType, maxPowerKw });
+  return response.data;
+}
+
 export async function deleteAdminConnector(connectorId: number) {
   await adminApi.delete(`/api/admin/connectors/${connectorId}`);
 }
@@ -399,5 +404,29 @@ export async function getAdminOcppLogs() {
 
 export async function getAdminCompletedSessionLogs() {
   const response = await adminApi.get('/api/admin/logs/completed-sessions');
+  return response.data;
+}
+
+export type AdminLiveMonitorEvent = {
+  timestamp?: string;
+  eventType?: string;
+  chargerId?: string;
+  connectorId?: number | null;
+  status?: string;
+  sessionId?: number | null;
+  transactionId?: number | null;
+  message?: string;
+};
+
+export type AdminLiveMonitorResponse = {
+  activeChargingSessions: number;
+  pendingStartSessions: number;
+  pendingVerificationSessions: number;
+  connectedChargers: number;
+  recentConnectorEvents: AdminLiveMonitorEvent[];
+};
+
+export async function getAdminLiveMonitor() {
+  const response = await adminApi.get<AdminLiveMonitorResponse>('/api/sessions/monitor/live');
   return response.data;
 }

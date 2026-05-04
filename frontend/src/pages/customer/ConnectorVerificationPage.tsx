@@ -99,6 +99,9 @@ export default function ConnectorVerificationPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [razorpayKeyId, setRazorpayKeyId] = useState<string | null>(null);
 
+  const isStaleSessionStateError = (message: string) =>
+    /Session is not awaiting verification|Session is not awaiting payment|Current status:\s*(CANCELLED|FAILED|COMPLETED|EXPIRED)/i.test(message);
+
   useEffect(() => {
     let mounted = true;
 
@@ -148,8 +151,15 @@ export default function ConnectorVerificationPage(): JSX.Element {
       await verifyConnector(resolvedSessionId);
       setConnectorVerified(true);
     } catch (err: any) {
+      const message = err.response?.data?.error || err.message || '';
+      if (isStaleSessionStateError(message)) {
+        setActiveSessionId(null);
+        setConnectorVerified(false);
+        setError('Previous session expired/cancelled. Please click verify again to create a new session.');
+        return;
+      }
       setConnectorVerified(false);
-      setError(err.response?.data?.error || err.message || 'Connector verification failed. Please plug in the vehicle and try again.');
+      setError(message || 'Connector verification failed. Please plug in the vehicle and try again.');
     } finally {
       setVerifying(false);
     }
@@ -225,7 +235,14 @@ export default function ConnectorVerificationPage(): JSX.Element {
         state: { sessionId: resolvedSessionId, vehicleNumber }
       });
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Payment failed. Please try again.');
+      const message = err.response?.data?.error || err.message || '';
+      if (isStaleSessionStateError(message)) {
+        setActiveSessionId(null);
+        setConnectorVerified(false);
+        setError('Session became invalid before start. Please verify connector again to create a new session.');
+      } else {
+        setError(message || 'Payment failed. Please try again.');
+      }
       setPaying(false);
     }
   };

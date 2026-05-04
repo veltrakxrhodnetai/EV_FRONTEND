@@ -15,6 +15,21 @@ function formatPaymentStatus(status: string | undefined): string {
   return status.replace(/_/g, ' ');
 }
 
+function isOnlineSettlementPending(bill: BillSummary | null): boolean {
+  if (!bill) {
+    return true;
+  }
+
+  const paymentMode = (bill.paymentMode || '').toUpperCase();
+  const paymentStatus = (bill.paymentStatus || '').toUpperCase();
+
+  if (paymentMode !== 'ONLINE') {
+    return false;
+  }
+
+  return !['CAPTURED', 'SETTLEMENT_FAILED', 'PREAUTH_RELEASED'].includes(paymentStatus);
+}
+
 export default function BillingSummaryPage(): JSX.Element {
   const { id: sessionId } = useParams();
   const [bill, setBill] = useState<BillSummary | null>(null);
@@ -23,6 +38,8 @@ export default function BillingSummaryPage(): JSX.Element {
 
   useEffect(() => {
     let mounted = true;
+    let intervalId: number | undefined;
+
     const loadBill = async () => {
       if (!sessionId) {
         return;
@@ -41,10 +58,20 @@ export default function BillingSummaryPage(): JSX.Element {
 
     void loadBill();
 
+    intervalId = window.setInterval(() => {
+      if (!isOnlineSettlementPending(bill)) {
+        return;
+      }
+      void loadBill();
+    }, 2000);
+
     return () => {
       mounted = false;
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
     };
-  }, [sessionId]);
+  }, [bill, sessionId]);
 
   if (loading) {
     return <div className="p-8">Loading bill...</div>;
@@ -120,6 +147,12 @@ export default function BillingSummaryPage(): JSX.Element {
         <div className="mt-4 inline-flex rounded-full bg-[#6D41E015] px-3 py-1 text-xs font-semibold text-[#6D41E0]">
           {bill?.paymentMode || '-'} • {paid ? 'PAID' : formatPaymentStatus(bill?.paymentStatus)}
         </div>
+
+        {isOnlineSettlementPending(bill) && (
+          <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+            Final charge and refund are being updated. This bill will refresh automatically.
+          </div>
+        )}
 
         <div className="mt-6 space-y-3">
           <button className="w-full rounded-xl bg-gradient-to-r from-[#6D41E0] to-[#F472B6] py-3 text-sm font-semibold text-white">
