@@ -70,11 +70,11 @@ function LimitProgressBar({
 
   return (
     <div className="mt-5">
-      <div className="flex justify-between text-xs text-gray-400 mb-1">
+      <div className="flex justify-between text-xs mb-1" style={{ color: 'rgba(167,139,250,0.6)' }}>
         <span>{label} limit progress</span>
         <span>{currentLabel} / {limitLabel} ({pct}%)</span>
       </div>
-      <div className="w-full rounded-full bg-[#2a2a40] h-3 overflow-hidden">
+      <div className="w-full rounded-full h-3 overflow-hidden" style={{ background: 'rgba(111,66,224,0.2)' }}>
         <div
           className={`h-3 rounded-full transition-all ${barColor}`}
           style={{ width: `${pct}%` }}
@@ -101,12 +101,12 @@ function SoCIndicator({ soc }: { soc: number }) {
   const barColor = pct >= 80 ? 'bg-green-500'   : pct >= 30 ? 'bg-amber-400'   : 'bg-red-500';
 
   return (
-    <div className="mt-4 rounded-xl bg-[#1d1d34] p-3">
+    <div className="mt-4 rounded-xl p-3" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.18)' }}>
       <div className="flex justify-between items-center mb-1">
-        <span className="text-xs text-gray-300">Battery</span>
+        <span className="text-xs" style={{ color: 'rgba(148,163,184,0.7)' }}>Battery</span>
         <span className={`text-sm font-semibold ${color}`}>{pct.toFixed(0)}%</span>
       </div>
-      <div className="w-full rounded-full bg-[#2a2a40] h-2 overflow-hidden">
+      <div className="w-full rounded-full h-2 overflow-hidden" style={{ background: 'rgba(111,66,224,0.2)' }}>
         <div
           className={`h-2 rounded-full transition-all ${barColor}`}
           style={{ width: `${pct}%` }}
@@ -350,12 +350,13 @@ export default function LiveSessionPage(): JSX.Element {
 
   /* ── Render ─────────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#0f0f1a] px-4 py-8 text-white">
-      <div className="mx-auto w-full max-w-lg rounded-2xl border border-[#2a2a40] bg-[#141429] p-6 shadow-lg">
+    <div className="min-h-[100dvh] text-white" style={{ background: '#0f0c1a' }}>
+      <div className="mx-auto w-full max-w-md px-4 py-4 pb-6">
+      <div className="rounded-2xl p-4 sm:p-6" style={{ background: '#1a1530', border: '1px solid rgba(111,66,224,0.25)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
 
         {/* Header */}
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Live Charging</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl font-bold sm:text-2xl">Live Charging</h1>
           <span
             className={`inline-flex h-3 w-3 rounded-full ${
               isCharging ? 'animate-pulse bg-[#6D41E0]' : 'bg-gray-600'
@@ -363,43 +364,43 @@ export default function LiveSessionPage(): JSX.Element {
           />
         </div>
 
-        <p className="mt-2 text-sm text-gray-200">
+        <p className="mt-2 text-sm" style={{ color: 'rgba(167,139,250,0.8)' }}>
           {session?.vehicleNumber || 'Vehicle'}
         </p>
 
         {/* Error banner */}
         {loadError && (
-          <div className="mt-4 rounded-lg bg-red-900/30 p-3 text-red-100 text-sm">
+          <div className="mt-4 rounded-xl p-3 text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5' }}>
             {loadError}
           </div>
         )}
 
         {/* Stopping banner */}
         {isStopping && (
-          <div className="mt-4 rounded-lg bg-amber-900/30 p-3 text-amber-100 text-sm">
+          <div className="mt-4 rounded-xl p-3 text-sm" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', color: '#fde68a' }}>
             ⏸ Charging is stopping…
           </div>
         )}
 
         {session && !loading && !isLiveSession && !loadError && (
-          <div className="mt-4 rounded-lg bg-slate-800/60 p-3 text-slate-100 text-sm">
+          <div className="mt-4 rounded-xl p-3 text-sm" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.2)', color: '#c4b5fd' }}>
             Session is not charging right now (status: {session.status}).
           </div>
         )}
 
         {/* ── Main stats ── */}
-        <div className="mt-8 text-center">
-          <p className="text-xs uppercase tracking-wide text-gray-400">Energy Consumed</p>
-          <p className="mt-1 text-5xl font-extrabold text-[#6D41E0]">
+        <div className="mt-6 text-center">
+          <p className="text-xs uppercase tracking-widest font-semibold" style={{ color: 'rgba(167,139,250,0.6)' }}>Energy Consumed</p>
+          <p className="mt-1 text-4xl font-extrabold text-[#6D41E0] sm:text-5xl">
             {loading ? '—' : stableEnergy.toFixed(2)}
-            <span className="text-2xl font-semibold ml-1">kWh</span>
+            <span className="ml-1 text-xl font-semibold sm:text-2xl">kWh</span>
           </p>
 
-          <p className="mt-5 text-xs uppercase tracking-wide text-gray-400">Amount</p>
-          <p className="mt-1 text-4xl font-bold text-[#6D41E0]">
+          <p className="mt-5 text-xs uppercase tracking-widest font-semibold" style={{ color: 'rgba(167,139,250,0.6)' }}>Amount</p>
+          <p className="mt-1 text-3xl font-bold text-[#6D41E0] sm:text-4xl">
             ₹ {stableAmount.toFixed(2)}
           </p>
-          <p className="mt-1 text-xs text-gray-500">Including GST</p>
+          <p className="mt-1 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Including GST</p>
         </div>
 
         {/* ── Stats grid ── */}
@@ -438,39 +439,42 @@ export default function LiveSessionPage(): JSX.Element {
         )}
 
         {/* ── Charging animation icon ── */}
-        <div className="mt-8 flex items-center justify-center">
+        <div className="mt-6 flex items-center justify-center">
           <div
-            className={`flex h-28 w-28 items-center justify-center rounded-full ring-8 ${
+            className={`flex h-24 w-24 items-center justify-center rounded-full ring-8 sm:h-28 sm:w-28 ${
               isCharging
                 ? 'animate-pulse bg-[#6D41E0]/20 ring-[#6D41E0]/10'
                 : 'bg-gray-700/20 ring-gray-700/20'
             }`}
           >
-            <span className="text-4xl">{isCharging ? '⚡' : '⏸'}</span>
+            <span className="text-3xl sm:text-4xl">{isCharging ? '⚡' : '⏸'}</span>
           </div>
         </div>
 
         {/* ── Stop button ── */}
-        {isLiveSession ? (
-          <button
-            disabled={stopping || !isCharging}
-            onClick={handleStop}
-            className="mt-8 w-full rounded-xl bg-gradient-to-r from-red-600 to-rose-500
-                       py-3 text-sm font-semibold text-white
-                       disabled:opacity-60 active:scale-[0.99] transition-transform"
-          >
-            {stopping || isStopping ? 'Stopping…' : 'Stop Charging'}
-          </button>
-        ) : (
-          <div className="mt-8 w-full rounded-xl bg-[#1d1d34] py-3 text-center text-sm text-gray-300">
-            Live controls will appear once charging becomes active.
-          </div>
-        )}
+        <div className="mt-6 rounded-xl p-3" style={{ background: '#130f23', border: '1px solid rgba(111,66,224,0.3)' }}>
+          {isLiveSession ? (
+            <button
+              disabled={stopping || !isCharging}
+              onClick={handleStop}
+              className="w-full rounded-xl bg-gradient-to-r from-red-600 to-rose-500
+                         py-3.5 text-base font-semibold text-white
+                         disabled:opacity-60 active:scale-[0.99] transition-transform"
+            >
+              {stopping || isStopping ? 'Stopping…' : 'Stop Charging'}
+            </button>
+          ) : (
+            <div className="w-full rounded-xl py-3 text-center text-sm" style={{ background: 'rgba(111,66,224,0.1)', color: '#a78bfa' }}>
+              Live controls will appear once charging becomes active.
+            </div>
+          )}
+        </div>
 
-        <p className="mt-3 text-center text-xs text-gray-500">
+        <p className="mt-3 text-center text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>
           Charging stops automatically when your selected limit is reached or the battery is full.
         </p>
 
+      </div>
       </div>
     </div>
   );
@@ -479,8 +483,8 @@ export default function LiveSessionPage(): JSX.Element {
 /* ─── Reusable stat card ─────────────────────────────────────── */
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-[#1d1d34] p-3">
-      <p className="text-gray-400">{label}</p>
+    <div className="rounded-xl p-3" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.18)' }}>
+      <p style={{ color: 'rgba(167,139,250,0.6)', fontSize: '0.75rem' }}>{label}</p>
       <p className="mt-1 font-semibold">{value}</p>
     </div>
   );

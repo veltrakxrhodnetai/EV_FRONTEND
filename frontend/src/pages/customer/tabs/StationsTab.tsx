@@ -1,0 +1,309 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getStationChargers, getStations, getStationTariff } from '../../../api/stations';
+import type { Station } from '../../../types';
+
+type AvailabilityFilter = 'All' | 'Available' | 'In Use' | 'Unavailable';
+
+const FILTER_OPTIONS: AvailabilityFilter[] = ['All', 'Available', 'In Use', 'Unavailable'];
+
+type StationMeta = {
+  maxPowerKw: number;
+  acTotal: number;
+  acAvailable: number;
+  dcTotal: number;
+  dcAvailable: number;
+  pricePerKwh: number;
+};
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getAvailability(station: Station): 'Available' | 'In Use' | 'Unavailable' {
+  if (station.availableConnectors > 0) return 'Available';
+  if (station.totalChargers > 0) return 'In Use';
+  return 'Unavailable';
+}
+
+export default function StationsTab(): JSX.Element {
+  const navigate = useNavigate();
+  const [stations, setStations] = useState<Station[]>([]);
+  const [stationMeta, setStationMeta] = useState<Record<number, StationMeta>>({});
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<AvailabilityFilter>('All');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {}
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const list = await getStations();
+        if (!mounted) return;
+        const safe = Array.isArray(list) ? list : [];
+        setStations(safe);
+
+        const entries = await Promise.all(
+          safe.map(async (s) => {
+            try {
+              const [chargers, tariff] = await Promise.all([
+                getStationChargers(s.id),
+                getStationTariff(s.id),
+              ]);
+              let maxPowerKw = 0, acTotal = 0, acAvailable = 0, dcTotal = 0, dcAvailable = 0;
+              chargers.forEach((c) => {
+                maxPowerKw = Math.max(maxPowerKw, Number(c.maxPowerKw || 0));
+                c.connectors?.forEach((cn) => {
+                  const isAc = (cn.type || '').toUpperCase().includes('AC');
+                  const avail = (cn.status || '').toLowerCase() === 'available';
+                  if (isAc) { acTotal++; if (avail) acAvailable++; }
+                  else { dcTotal++; if (avail) dcAvailable++; }
+                });
+              });
+              return [s.id, { maxPowerKw, acTotal, acAvailable, dcTotal, dcAvailable, pricePerKwh: Number(tariff.pricePerKwh || 0) }] as const;
+            } catch {
+              return [s.id, { maxPowerKw: 0, acTotal: 0, acAvailable: 0, dcTotal: 0, dcAvailable: 0, pricePerKwh: 0 }] as const;
+            }
+          })
+        );
+        if (mounted) setStationMeta(Object.fromEntries(entries));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    void load();
+    return () => { mounted = false; };
+  }, []);
+
+  const displayed = useMemo(() => {
+    let result = stations;
+
+    if (searchTerm.trim()) {
+      const t = searchTerm.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(t) ||
+          (s.address || '').toLowerCase().includes(t) ||
+          (s.city || '').toLowerCase().includes(t)
+      );
+    }
+
+    if (filter !== 'All') {
+      result = result.filter((s) => getAvailability(s) === filter);
+    }
+
+    if (userLocation) {
+      result = [...result].sort((a, b) => {
+        const dA =
+          Number.isFinite(a.latitude) && Number.isFinite(a.longitude)
+            ? haversineKm(userLocation.lat, userLocation.lng, Number(a.latitude), Number(a.longitude))
+            : Infinity;
+        const dB =
+          Number.isFinite(b.latitude) && Number.isFinite(b.longitude)
+            ? haversineKm(userLocation.lat, userLocation.lng, Number(b.latitude), Number(b.longitude))
+            : Infinity;
+        return dA - dB;
+      });
+    }
+    return result;
+  }, [stations, searchTerm, filter, userLocation]);
+
+  const badgeColors: Record<string, string> = {
+    Available: 'text-emerald-400',
+    'In Use': 'text-amber-400',
+    Unavailable: 'text-slate-500',
+  };
+  const badgeBg: Record<string, string> = {
+    Available: 'rgba(16,185,129,0.15)',
+    'In Use': 'rgba(245,158,11,0.15)',
+    Unavailable: 'rgba(100,116,139,0.15)',
+  };
+  const badgeBorder: Record<string, string> = {
+    Available: 'rgba(16,185,129,0.3)',
+    'In Use': 'rgba(245,158,11,0.3)',
+    Unavailable: 'rgba(100,116,139,0.25)',
+  };
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden" style={{ background: '#0f0c1a' }}>
+      {/* Search & Filter */}
+      <div
+        className="shrink-0 px-4 pt-4 pb-3 space-y-3 z-10"
+        style={{ background: '#130f23', borderBottom: '1px solid rgba(111,66,224,0.18)' }}
+      >
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(167,139,250,0.6)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by name, city or address..."
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm focus:outline-none"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(111,66,224,0.3)',
+              color: '#f1f5f9',
+            }}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+              style={{ color: 'rgba(148,163,184,0.6)' }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as AvailabilityFilter)}
+            className="flex-1 py-2 px-3 rounded-xl text-sm focus:outline-none"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(111,66,224,0.3)',
+              color: '#f1f5f9',
+            }}
+          >
+            {FILTER_OPTIONS.map((opt) => (
+              <option key={opt} value={opt} style={{ background: '#1a1530', color: '#f1f5f9' }}>
+                {opt === 'All' ? 'All Stations' : `${opt} Only`}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs shrink-0 font-semibold" style={{ color: 'rgba(167,139,250,0.7)' }}>
+            {loading ? '...' : `${displayed.length} found`}
+          </span>
+        </div>
+      </div>
+
+      {/* Station List */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ background: '#0f0c1a' }}>
+        {loading &&
+          [1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse rounded-2xl p-5" style={{ background: '#1a1530', border: '1px solid rgba(111,66,224,0.15)' }}>
+              <div className="h-5 w-2/3 rounded mb-3" style={{ background: 'rgba(111,66,224,0.15)' }} />
+              <div className="h-3 w-1/2 rounded mb-2" style={{ background: 'rgba(111,66,224,0.1)' }} />
+              <div className="h-3 w-1/3 rounded" style={{ background: 'rgba(111,66,224,0.1)' }} />
+            </div>
+          ))}
+
+        {!loading && displayed.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16" style={{ color: 'rgba(148,163,184,0.4)' }}>
+            <svg className="w-14 h-14 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="#6f42e0">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <p className="text-sm font-medium" style={{ color: 'rgba(241,245,249,0.5)' }}>No stations found</p>
+            {searchTerm && <p className="text-xs mt-1" style={{ color: 'rgba(148,163,184,0.4)' }}>Try a different search term</p>}
+          </div>
+        )}
+
+        {!loading &&
+          displayed.map((station) => {
+            const availability = getAvailability(station);
+            const meta = stationMeta[station.id] ?? {
+              maxPowerKw: 0, acTotal: 0, acAvailable: 0, dcTotal: 0, dcAvailable: 0, pricePerKwh: 0,
+            };
+            const dist =
+              userLocation && Number.isFinite(station.latitude) && Number.isFinite(station.longitude)
+                ? haversineKm(userLocation.lat, userLocation.lng, Number(station.latitude), Number(station.longitude))
+                : null;
+            const isAvailable = availability === 'Available';
+
+            return (
+              <article
+                key={station.id}
+                className="rounded-2xl p-4 cursor-pointer transition-all"
+                style={{
+                  background: '#1a1530',
+                  border: '1px solid rgba(111,66,224,0.2)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                }}
+                onClick={() => navigate(`/station/${station.id}`)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-bold text-base leading-tight truncate" style={{ color: '#f1f5f9' }}>{station.name}</h2>
+                    {dist !== null && (
+                      <p className="text-xs mt-0.5 font-semibold" style={{ color: '#a78bfa' }}>
+                        📍 {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`} away
+                      </p>
+                    )}
+                    <p className="text-xs mt-1 truncate" style={{ color: 'rgba(148,163,184,0.7)' }}>
+                      {station.address}{station.city ? `, ${station.city}` : ''}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${badgeColors[availability] ?? 'text-slate-400'}`}
+                    style={{
+                      background: badgeBg[availability] ?? 'rgba(100,116,139,0.12)',
+                      border: `1px solid ${badgeBorder[availability] ?? 'rgba(100,116,139,0.2)'}`,
+                    }}
+                  >
+                    {availability}
+                  </span>
+                </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-xl p-2 text-center" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.15)' }}>
+                    <p className="text-[10px] mb-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>Power</p>
+                    <p className="font-bold" style={{ color: '#e2e8f0' }}>⚡ {meta.maxPowerKw || '--'} kW</p>
+                  </div>
+                  <div className="rounded-xl p-2 text-center" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.15)' }}>
+                    <p className="text-[10px] mb-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>AC / DC</p>
+                    <p className="font-bold" style={{ color: '#e2e8f0' }}>
+                      {meta.acAvailable}/{meta.acTotal} · {meta.dcAvailable}/{meta.dcTotal}
+                    </p>
+                  </div>
+                  <div className="rounded-xl p-2 text-center" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.15)' }}>
+                    <p className="text-[10px] mb-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>Rate</p>
+                    <p className="font-bold" style={{ color: '#e2e8f0' }}>₹{meta.pricePerKwh.toFixed(2)}</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); navigate(`/station/${station.id}`); }}
+                  className="mt-3 w-full rounded-xl py-2.5 text-sm font-bold transition-all"
+                  style={isAvailable ? {
+                    background: 'linear-gradient(135deg, #6f42e0, #a855f7)',
+                    color: 'white',
+                    boxShadow: '0 4px 14px rgba(111,66,224,0.35)',
+                  } : {
+                    background: 'rgba(111,66,224,0.1)',
+                    border: '1px solid rgba(111,66,224,0.4)',
+                    color: '#a78bfa',
+                  }}
+                >
+                  {isAvailable ? '⚡ Start Charging' : 'View Details'}
+                </button>
+              </article>
+            );
+          })}
+
+        <div className="h-4" />
+      </div>
+    </div>
+  );
+}

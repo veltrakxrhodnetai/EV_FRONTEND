@@ -56,7 +56,7 @@ export function setCustomerSessionFromToken(tokenWithType: string): void {
     localStorage.setItem(CUSTOMER_NAME_KEY, payload.name.trim());
   }
 
-  const possiblePhone = payload.phoneNumber ?? payload.sub;
+  const possiblePhone = payload.phoneNumber ?? payload.mobile ?? payload.sub;
   if (possiblePhone?.trim()) {
     localStorage.setItem(CUSTOMER_PHONE_KEY, possiblePhone.trim());
   }

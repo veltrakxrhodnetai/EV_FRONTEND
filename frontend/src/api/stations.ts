@@ -1,4 +1,5 @@
 import api from './axios';
+import axios from 'axios';
 import type { Charger, Station, Tariff } from '../types';
 
 function toArrayResponse<T>(payload: unknown, key: string): T[] {
@@ -27,9 +28,15 @@ export async function getStationChargers(stationId: string | number): Promise<Ch
 }
 
 export async function getStationTariff(stationId: string | number): Promise<Tariff> {
-  const response = await api.get<Tariff>(`/api/stations/${stationId}/tariff`);
-  if (response.data && typeof response.data === 'object') {
-    return response.data;
+  try {
+    const response = await api.get<Tariff>(`/api/stations/${stationId}/tariff`);
+    if (response.data && typeof response.data === 'object') {
+      return response.data;
+    }
+  } catch (error) {
+    if (!axios.isAxiosError(error) || error.response?.status !== 404) {
+      throw error;
+    }
   }
 
   return {

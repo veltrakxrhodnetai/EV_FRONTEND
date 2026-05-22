@@ -49,7 +49,8 @@ function ChargingFormExample() {
     }
 
     // Send to backend for session creation
-    submitSessionStart({
+    // submitSessionStart({ totalAmount, baseAmount, gstAmount, units, preauthAmount })
+    console.log('Session start payload:', {
       totalAmount: charging.totalAmount,
       baseAmount: charging.baseAmount,
       gstAmount: charging.gstAmount,

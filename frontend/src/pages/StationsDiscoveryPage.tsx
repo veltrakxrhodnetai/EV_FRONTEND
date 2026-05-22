@@ -1,10 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getStationChargers, getStations, getStationTariff } from '../api/stations';
 import type { Station } from '../types';
 import { getCustomerPhone, getCustomerDisplayText, logoutCustomer } from '../utils/authSession';
 
 type FilterTab = 'Available' | 'All' | 'Unavailable';
+type ViewMode = 'home' | 'map';
+type ConnectorTypeFilter = 'ALL' | 'AC' | 'DC';
+
+declare global {
+  interface Window {
+    L?: any;
+    __evOpenStationFromDiscovery?: (stationId: number) => void;
+  }
+}
 
 type StationMeta = {
   maxPowerKw: number;
@@ -137,6 +146,12 @@ export default function StationsDiscoveryPage(): JSX.Element {
   const [customerDisplay, setCustomerDisplay] = useState('');
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState<number>(0);
   const [activeDirectionsStationId, setActiveDirectionsStationId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('home');
+  const [connectorType, setConnectorType] = useState<ConnectorTypeFilter>('ALL');
+  const [leafletReady, setLeafletReady] = useState(!!window.L);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersLayerRef = useRef<any>(null);
 
   const onLogout = () => {
     logoutCustomer();
@@ -166,6 +181,21 @@ export default function StationsDiscoveryPage(): JSX.Element {
         }
       );
     }
+  }, []);
+
+  /* Poll until Leaflet CDN script is loaded */
+  useEffect(() => {
+    if (window.L) {
+      setLeafletReady(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      if (window.L) {
+        setLeafletReady(true);
+        clearInterval(interval);
+      }
+    }, 150);
+    return () => clearInterval(interval);
   }, []);
 
   /* Load stations and metadata */
@@ -284,8 +314,23 @@ export default function StationsDiscoveryPage(): JSX.Element {
       result = result.filter(
         (station) =>
           station.name.toLowerCase().includes(term) ||
-          (station.address || '').toLowerCase().includes(term)
+          (station.address || '').toLowerCase().includes(term) ||
+          (station.city || '').toLowerCase().includes(term) ||
+          (station.state || '').toLowerCase().includes(term)
       );
+    }
+
+    if (connectorType !== 'ALL') {
+      result = result.filter((station) => {
+        const meta = stationMeta[station.id];
+        if (!meta) {
+          return true;
+        }
+        if (connectorType === 'AC') {
+          return meta.acTotal > 0;
+        }
+        return meta.dcTotal > 0;
+      });
     }
 
     /* Filter to selected nearby radius when location and station coordinates are present */
@@ -325,7 +370,7 @@ export default function StationsDiscoveryPage(): JSX.Element {
     }
 
     return result;
-  }, [selectedTab, stations, searchTerm, userLocation, nearbyRadiusKm]);
+  }, [selectedTab, stations, searchTerm, userLocation, nearbyRadiusKm, connectorType, stationMeta]);
 
   const handleStartCharging = (stationId: number) => {
     const isLoggedIn = getCustomerPhone() !== null;
@@ -335,6 +380,112 @@ export default function StationsDiscoveryPage(): JSX.Element {
     }
     navigate(`/station/${stationId}`);
   };
+
+  const markerColor = (station: Station): string => {
+    const availability = deriveAvailability(station);
+    if (availability === 'Available') {
+      return '#16a34a';
+    }
+    if (availability === 'In Use') {
+      return '#d97706';
+    }
+    return '#6b7280';
+  };
+
+  useEffect(() => {
+    if (!leafletReady || viewMode !== 'map' || !mapContainerRef.current || mapInstanceRef.current) {
+      return;
+    }
+
+    const L = window.L;
+    const map = L.map(mapContainerRef.current, {
+      center: [20.5937, 78.9629],
+      zoom: 5,
+      zoomControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    mapInstanceRef.current = map;
+  }, [leafletReady, viewMode]);
+
+  useEffect(() => {
+    if (!leafletReady || viewMode !== 'map' || !mapInstanceRef.current) {
+      return;
+    }
+
+    const L = window.L;
+    const map = mapInstanceRef.current;
+
+    if (markersLayerRef.current) {
+      map.removeLayer(markersLayerRef.current);
+    }
+
+    const layer = L.layerGroup();
+    const bounds: [number, number][] = [];
+
+    filteredAndSortedStations.forEach((station) => {
+      const lat = Number(station.latitude);
+      const lng = Number(station.longitude);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+        return;
+      }
+
+      bounds.push([lat, lng]);
+      const color = markerColor(station);
+      const availability = deriveAvailability(station);
+
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);"></div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+        popupAnchor: [0, -30],
+      });
+
+      const popup = `
+        <div style="font-family:-apple-system,sans-serif;min-width:190px;padding:2px 0">
+          <p style="font-weight:700;font-size:14px;margin:0 0 3px;color:#111">${station.name}</p>
+          <p style="font-size:11px;color:#6b7280;margin:0 0 4px">${station.address ?? ''}${station.city ? `, ${station.city}` : ''}</p>
+          <p style="font-size:12px;margin:0 0 9px;color:#374151">${availability}</p>
+          <button
+            onclick="window.__evOpenStationFromDiscovery(${station.id})"
+            style="width:100%;padding:7px 0;background:#111827;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer"
+          >Open Station →</button>
+        </div>
+      `;
+
+      L.marker([lat, lng], { icon }).bindPopup(popup, { maxWidth: 220 }).addTo(layer);
+    });
+
+    layer.addTo(map);
+    markersLayerRef.current = layer;
+
+    if (bounds.length > 0) {
+      map.fitBounds(bounds, { padding: [36, 36], maxZoom: 13 });
+    }
+  }, [filteredAndSortedStations, leafletReady, viewMode]);
+
+  useEffect(() => {
+    window.__evOpenStationFromDiscovery = (stationId: number) => handleStartCharging(stationId);
+    return () => {
+      delete window.__evOpenStationFromDiscovery;
+    };
+  });
+
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markersLayerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#f8f8ff] pb-8">
@@ -420,6 +571,28 @@ export default function StationsDiscoveryPage(): JSX.Element {
         </div>
       </div>
 
+      {/* Home / Map switch */}
+      <div className="mx-auto mt-5 flex w-full max-w-3xl gap-2 px-4">
+        <button
+          type="button"
+          onClick={() => setViewMode('home')}
+          className={`rounded-full px-4 py-2 text-sm font-semibold ${
+            viewMode === 'home' ? 'bg-[#6D41E0] text-white' : 'border border-[#6D41E0] bg-white text-[#6D41E0]'
+          }`}
+        >
+          Home
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('map')}
+          className={`rounded-full px-4 py-2 text-sm font-semibold ${
+            viewMode === 'map' ? 'bg-[#6D41E0] text-white' : 'border border-[#6D41E0] bg-white text-[#6D41E0]'
+          }`}
+        >
+          Map
+        </button>
+      </div>
+
       {/* Filter Tabs */}
       <div className="mx-auto mt-5 flex w-full max-w-3xl gap-2 px-4">
         {tabs.map((tab) => {
@@ -438,6 +611,18 @@ export default function StationsDiscoveryPage(): JSX.Element {
             </button>
           );
         })}
+      </div>
+
+      <div className="mx-auto mt-3 w-full max-w-3xl px-4">
+        <select
+          value={connectorType}
+          onChange={(e) => setConnectorType(e.target.value as ConnectorTypeFilter)}
+          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#6D41E0] focus:ring-2 focus:ring-[#6D41E0]/20"
+        >
+          <option value="ALL">All Connector Types</option>
+          <option value="AC">AC Connectors</option>
+          <option value="DC">DC Connectors</option>
+        </select>
       </div>
 
       {userLocation && (
@@ -467,6 +652,22 @@ export default function StationsDiscoveryPage(): JSX.Element {
       )}
 
       {/* Main Content */}
+      {viewMode === 'map' ? (
+        <section className="mx-auto mt-4 w-full max-w-3xl px-4">
+          {!leafletReady ? (
+            <div className="flex h-[58vh] items-center justify-center rounded-2xl bg-white text-sm text-gray-500 shadow-lg">
+              Loading map...
+            </div>
+          ) : (
+            <>
+              <div className="mb-2 rounded-lg bg-white px-3 py-2 text-xs text-gray-600 shadow">
+                Showing {filteredAndSortedStations.length} station{filteredAndSortedStations.length !== 1 ? 's' : ''}
+              </div>
+              <div ref={mapContainerRef} className="h-[58vh] w-full overflow-hidden rounded-2xl shadow-lg" />
+            </>
+          )}
+        </section>
+      ) : (
       <main className="mx-auto mt-4 w-full max-w-3xl space-y-4 px-4">
         {loading &&
           [1, 2, 3].map((i) => (
@@ -632,6 +833,7 @@ export default function StationsDiscoveryPage(): JSX.Element {
             );
           })}
       </main>
+      )}
     </div>
   );
 }

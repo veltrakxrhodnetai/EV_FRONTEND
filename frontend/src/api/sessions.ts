@@ -1,4 +1,5 @@
 import api from './axios';
+import axios from 'axios';
 import type { BillSummary, LiveSession, StartSessionRequest } from '../types';
 
 export interface StartSessionResponse {
@@ -207,4 +208,31 @@ export async function getOwnerDashboardSessions(
   const url = `/api/owner/dashboard/${ownerId}/sessions${query ? `?${query}` : ''}`;
   const response = await api.get<OwnerDashboardResponse>(url);
   return response.data;
+}
+
+export interface CustomerSessionHistory {
+  sessionId: number;
+  status: string;
+  vehicleNumber?: string;
+  energyConsumedKwh: number;
+  totalAmount: number;
+  paymentMode?: string;
+  paymentStatus?: string;
+  startedAt?: string;
+  endedAt?: string;
+  stationName: string;
+}
+
+export async function getCustomerSessionHistory(phoneNumber: string): Promise<CustomerSessionHistory[]> {
+  try {
+    const response = await api.get<CustomerSessionHistory[]>('/api/sessions/customer/history', {
+      params: { phoneNumber },
+    });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return [];
+    }
+    throw error;
+  }
 }

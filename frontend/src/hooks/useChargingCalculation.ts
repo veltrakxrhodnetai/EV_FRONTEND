@@ -24,7 +24,7 @@ import {
   getPreauthAmount,
   validateAmount,
   validateUnits,
-} from './pricing';
+} from '../utils/pricing';
 
 export interface ChargingState {
   // User input

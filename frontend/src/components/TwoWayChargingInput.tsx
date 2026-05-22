@@ -13,7 +13,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { calculateFromAmount, calculateFromUnits } from './pricing';
+import { calculateFromAmount, calculateFromUnits } from '../utils/pricing';
 
 interface TwoWayChargingInputProps {
   /** Callback when calculation changes */
@@ -46,7 +46,7 @@ export const TwoWayChargingInput: React.FC<TwoWayChargingInputProps> = ({
   const [unitsStr, setUnitsStr] = useState('');
 
   // Debounce timer reference
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Calculate units when amount changes
   useEffect(() => {
