@@ -5,6 +5,7 @@ import {
   updateAdminCharger,
   toggleAdminChargerEnable,
   resetAdminCharger,
+  deleteAdminCharger,
   getAdminStations,
   getAdminConnectors,
   createAdminConnector,
@@ -362,6 +363,24 @@ export default function AdminChargersPage(): JSX.Element {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to send ${type.toLowerCase()} reset`);
+    } finally {
+      setActioningChargerId(null);
+    }
+  };
+
+  const handleDeleteCharger = async (id: number) => {
+    const ok = window.confirm('Delete this charger and all its connectors? This action cannot be undone.');
+    if (!ok) return;
+
+    try {
+      setActioningChargerId(id);
+      setError('');
+      await deleteAdminCharger(id);
+      setSuccess('Charger deleted');
+      await load();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete charger');
     } finally {
       setActioningChargerId(null);
     }
@@ -759,6 +778,13 @@ export default function AdminChargersPage(): JSX.Element {
                                   className="text-orange-700 hover:text-orange-900 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Hard Reset
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCharger(charger.id)}
+                                  disabled={isBusy}
+                                  className="text-red-700 hover:text-red-900 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Delete
                                 </button>
                               </>
                             );

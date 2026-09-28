@@ -15,6 +15,8 @@ const navItems: NavItem[] = [
   { to: '/admin-lite/owners', label: 'Owners' },
   { to: '/admin-lite/users', label: 'Users' },
   { to: '/admin-lite/ocpp', label: 'OCPP' },
+  { to: '/admin-lite/uptime', label: 'Uptime' },
+  { to: '/admin-lite/settlement', label: 'Settlement' },
 ];
 
 export default function AdminLiteLayout(): JSX.Element {

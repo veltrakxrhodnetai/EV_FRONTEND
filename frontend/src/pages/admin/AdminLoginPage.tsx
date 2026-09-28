@@ -5,8 +5,8 @@ import { saveAdminSession } from '../../utils/adminAuth';
 
 export default function AdminLoginPage(): JSX.Element {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('superadmin');
-  const [password, setPassword] = useState('Admin@123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -36,7 +36,7 @@ export default function AdminLoginPage(): JSX.Element {
       <form onSubmit={onSubmit} className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">CSMS Admin Portal</h1>
-          <p className="text-sm text-slate-600 mt-1">Sign in as SUPER ADMIN or ADMIN</p>
+          <p className="text-sm text-slate-600 mt-1">Sign in as ADMIN</p>
         </div>
 
         <label className="block space-y-1">
@@ -44,6 +44,7 @@ export default function AdminLoginPage(): JSX.Element {
           <input
             className="w-full border rounded-lg px-3 py-2"
             value={username}
+            placeholder="Enter username"
             onChange={(event) => setUsername(event.target.value)}
           />
         </label>
@@ -54,6 +55,7 @@ export default function AdminLoginPage(): JSX.Element {
             type="password"
             className="w-full border rounded-lg px-3 py-2"
             value={password}
+            placeholder="Enter password"
             onChange={(event) => setPassword(event.target.value)}
           />
         </label>
@@ -67,8 +69,6 @@ export default function AdminLoginPage(): JSX.Element {
         >
           {loading ? 'Signing in...' : 'Login'}
         </button>
-
-        <p className="text-xs text-slate-500">Default seed: superadmin / Admin@123</p>
       </form>
     </main>
   );

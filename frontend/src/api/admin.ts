@@ -197,6 +197,10 @@ export async function deleteAdminConnector(connectorId: number) {
   await adminApi.delete(`/api/admin/connectors/${connectorId}`);
 }
 
+export async function deleteAdminCharger(chargerId: number) {
+  await adminApi.delete(`/api/admin/chargers/${chargerId}`);
+}
+
 export async function setConnectorAvailability(
   connectorId: number,
   status: 'AVAILABLE' | 'UNAVAILABLE',
@@ -324,6 +328,10 @@ export async function deleteAdminOcppConfig(id: number) {
   return response.data;
 }
 
+export async function deleteAdminStation(stationId: number) {
+  await adminApi.delete(`/api/admin/stations/${stationId}`);
+}
+
 export async function getAdminOwners() {
   const response = await adminApi.get('/api/admin/owners');
   return response.data;
@@ -354,6 +362,16 @@ export async function updateAdminOwnerAssignments(
   payload: { stationIds: number[]; role: string }
 ) {
   const response = await adminApi.put(`/api/admin/owners/${ownerId}/assignments`, payload);
+  return response.data;
+}
+
+export async function resetAdminOwnerPassword(ownerId: number, newPassword: string) {
+  const response = await adminApi.put<{ message: string }>(`/api/admin/owners/${ownerId}/reset-password`, { newPassword });
+  return response.data;
+}
+
+export async function loginAsOwner(ownerId: number): Promise<{ token: string }> {
+  const response = await adminApi.post<{ token: string }>(`/api/admin/owners/${ownerId}/login-as`);
   return response.data;
 }
 
@@ -429,4 +447,47 @@ export type AdminLiveMonitorResponse = {
 export async function getAdminLiveMonitor() {
   const response = await adminApi.get<AdminLiveMonitorResponse>('/api/sessions/monitor/live');
   return response.data;
+}
+
+// ── Uptime ────────────────────────────────────────────────────────────────────
+
+export type UptimeStatusLogEntry = {
+  id: number;
+  status: 'ONLINE' | 'OFFLINE' | 'FAULTED';
+  startedAt: string;
+  endedAt: string | null;
+  durationSeconds: number;
+};
+
+export type ChargerUptimeSummary = {
+  chargerId: number;
+  chargerName: string;
+  ocppIdentity: string;
+  stationId: number | null;
+  totalOnlineSeconds: number;
+  totalOfflineSeconds: number;
+  totalFaultedSeconds: number;
+  statusLogs: UptimeStatusLogEntry[];
+};
+
+export async function getAdminUptimeSummary(from: string, to: string) {
+  const response = await adminApi.get<ChargerUptimeSummary[]>('/api/admin/uptime/summary', {
+    params: { from, to },
+  });
+  return response.data;
+}
+
+export async function getAdminChargerUptimeTimeline(chargerId: number, from: string, to: string) {
+  const response = await adminApi.get<ChargerUptimeSummary>(`/api/admin/uptime/${chargerId}/timeline`, {
+    params: { from, to },
+  });
+  return response.data;
+}
+
+export function getAdminUptimeExportUrl(from: string, to: string): string {
+  return `/api/admin/uptime/export?from=${from}&to=${to}`;
+}
+
+export function getAdminChargerUptimeExportUrl(chargerId: number, from: string, to: string): string {
+  return `/api/admin/uptime/${chargerId}/export?from=${from}&to=${to}`;
 }

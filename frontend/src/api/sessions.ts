@@ -32,8 +32,8 @@ export async function verifyConnector(sessionId: number): Promise<{ sessionId: n
   return response.data;
 }
 
-export async function payAndStart(sessionId: number): Promise<{ sessionId: number; message: string; status: string; paymentStatus: string; preauthId?: string }> {
-  const response = await api.post<{ sessionId: number; message: string; status: string; paymentStatus: string; preauthId?: string }>(`/api/sessions/${sessionId}/pay-and-start`);
+export async function payAndStart(sessionId: number, razorpayPaymentId?: string): Promise<{ sessionId: number; message: string; status: string; paymentStatus: string; preauthId?: string }> {
+  const response = await api.post<{ sessionId: number; message: string; status: string; paymentStatus: string; preauthId?: string }>(`/api/sessions/${sessionId}/pay-and-start`, { razorpayPaymentId });
   return response.data;
 }
 

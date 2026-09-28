@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getStationChargers, getStations, getStationTariff } from '../api/stations';
 import type { Station } from '../types';
+import { isAcConnector } from '../utils/chargerUtils';
 import { getCustomerPhone, getCustomerDisplayText, logoutCustomer } from '../utils/authSession';
 
 type FilterTab = 'Available' | 'All' | 'Unavailable';
@@ -230,9 +231,8 @@ export default function StationsDiscoveryPage(): JSX.Element {
               chargers.forEach((charger) => {
                 maxPowerKw = Math.max(maxPowerKw, Number(charger.maxPowerKw || 0));
                 charger.connectors?.forEach((connector) => {
-                  const type = (connector.type || '').toUpperCase();
                   const isAvailable = (connector.status || '').toLowerCase() === 'available';
-                  const isAc = type.includes('AC');
+                  const isAc = isAcConnector(charger.chargerType, connector.type, charger.maxPowerKw);
 
                   if (isAc) {
                     acTotal += 1;

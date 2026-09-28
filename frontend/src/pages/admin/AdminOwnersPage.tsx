@@ -6,6 +6,8 @@ import {
   getAdminOwners,
   getAdminOwnersByStation,
   getAdminStations,
+  loginAsOwner,
+  resetAdminOwnerPassword,
   updateAdminOwnerAssignments,
 } from '../../api/admin';
 
@@ -24,6 +26,9 @@ export default function AdminOwnersPage(): JSX.Element {
   const [selectedRole, setSelectedRole] = useState('OWNER');
   const [filterStationId, setFilterStationId] = useState<number | ''>('');
   const [message, setMessage] = useState('');
+  const [resetModal, setResetModal] = useState<{ ownerId: number; ownerName: string } | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',
     mobileNumber: '',
@@ -127,6 +132,31 @@ export default function AdminOwnersPage(): JSX.Element {
     const stationId = stationIdValue ? Number(stationIdValue) : '';
     setFilterStationId(stationId);
     await load(stationId ? stationId : undefined);
+  };
+
+  const onResetPassword = async () => {
+    if (!resetModal || !resetPassword.trim()) return;
+    setResetLoading(true);
+    try {
+      await resetAdminOwnerPassword(resetModal.ownerId, resetPassword.trim());
+      setMessage(`Password reset for ${resetModal.ownerName}.`);
+      setResetModal(null);
+      setResetPassword('');
+    } catch {
+      setMessage('Failed to reset password.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const onViewAsOwner = async (ownerId: number) => {
+    try {
+      const result = await loginAsOwner(ownerId);
+      localStorage.setItem('ownerAuthToken', result.token);
+      window.open('/owner/dashboard', '_blank');
+    } catch {
+      setMessage('Failed to open owner portal.');
+    }
   };
 
   const onDeleteOwner = async (ownerId: number) => {
@@ -281,21 +311,66 @@ export default function AdminOwnersPage(): JSX.Element {
                 </td>
                 <td className="py-2">{owner.status}</td>
                 <td className="py-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onDeleteOwner(owner.id).catch(() => undefined);
-                    }}
-                    className="bg-red-600 text-white text-xs rounded px-3 py-1.5 font-semibold hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => { setResetModal({ ownerId: owner.id, ownerName: owner.name }); setResetPassword(''); }}
+                      className="bg-amber-500 text-white text-xs rounded px-3 py-1.5 font-semibold hover:bg-amber-600"
+                    >
+                      Reset PIN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { onViewAsOwner(owner.id).catch(() => undefined); }}
+                      className="bg-indigo-600 text-white text-xs rounded px-3 py-1.5 font-semibold hover:bg-indigo-700"
+                    >
+                      View as Owner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { onDeleteOwner(owner.id).catch(() => undefined); }}
+                      className="bg-red-600 text-white text-xs rounded px-3 py-1.5 font-semibold hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {resetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-lg font-bold text-slate-900">Reset PIN — {resetModal.ownerName}</h3>
+            <input
+              type="password"
+              className="border rounded px-3 py-2 w-full"
+              placeholder="New PIN / Password"
+              value={resetPassword}
+              onChange={(e) => setResetPassword(e.target.value)}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setResetModal(null)}
+                className="border rounded px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={resetLoading || !resetPassword.trim()}
+                onClick={() => { onResetPassword().catch(() => undefined); }}
+                className="bg-amber-500 text-white rounded px-4 py-2 text-sm font-semibold hover:bg-amber-600 disabled:opacity-50"
+              >
+                {resetLoading ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

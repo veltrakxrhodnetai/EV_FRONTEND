@@ -14,6 +14,7 @@ function App() {
   const DEFAULT_OCPP_TOKEN = '123456';
   const [backendUrl, setBackendUrl] = useState(() => localStorage.getItem('sim_backendUrl') || import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080');
   const [ocppToken, setOcppToken] = useState(() => localStorage.getItem('sim_ocppToken') || import.meta.env.VITE_OCPP_TOKEN || DEFAULT_OCPP_TOKEN);
+  const [fullWsUrl, setFullWsUrl] = useState(() => localStorage.getItem('sim_fullWsUrl') || import.meta.env.VITE_FULL_WS_URL || '');
   const [showSettings, setShowSettings] = useState(false);
   const [systemStatus, setSystemStatus] = useState({
     backendConnected: false,
@@ -316,6 +317,7 @@ function App() {
               chargerName={selectedCharger.name}
               backendUrl={backendUrl}
               ocppToken={ocppToken}
+              fullWsUrl={fullWsUrl}
               chargerInfo={selectedCharger}
               connectors={connectors}
             />

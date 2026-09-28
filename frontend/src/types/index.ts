@@ -19,6 +19,7 @@ export interface Charger {
   name: string;
   maxPowerKw: number;
   status: string;
+  chargerType?: string;
   connectors: Connector[];
 }
 

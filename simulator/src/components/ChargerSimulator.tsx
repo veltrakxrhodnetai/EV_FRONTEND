@@ -10,6 +10,7 @@ interface ChargerSimulatorProps {
   ocppToken?: string;
   chargerInfo?: ChargerInfo;
   connectors?: ConnectorInfo[];
+  fullWsUrl?: string;
 }
 
 const SIMULATION_TICK_MS = 1000;
@@ -24,7 +25,8 @@ export default function ChargerSimulator({
   backendUrl, 
   ocppToken,
   chargerInfo: providedChargerInfo,
-  connectors: providedConnectors 
+  connectors: providedConnectors,
+  fullWsUrl
 }: ChargerSimulatorProps) {
   const getPaymentBadgeColor = (paymentStatus?: string) => {
     switch ((paymentStatus || '').toUpperCase()) {
@@ -100,6 +102,9 @@ export default function ChargerSimulator({
   } | null>(null);
   
   const ocppRef = useRef<OcppProtocol | null>(null);
+  const [customWsUrl, setCustomWsUrl] = useState<string>(() =>
+    (localStorage.getItem('sim_fullWsUrl') || fullWsUrl || import.meta.env.VITE_FULL_WS_URL || '')
+  );
   const autoConnectAttemptedRef = useRef(false);
   const meterIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const powerVariationRef = useRef(SIMULATED_POWER_DEFAULT_KW);
@@ -330,9 +335,9 @@ export default function ChargerSimulator({
       return;
     }
 
-    if (!backendConnected) {
+    if (!backendConnected && !customWsUrl) {
       if (!silent) {
-        alert('⚠️ Backend is not reachable. Please check if backend is running on ' + backendUrl);
+        alert('⚠️ Backend is not reachable. Please check if backend is running on ' + backendUrl + '\nOr provide a full WebSocket URL to connect directly.');
       }
       return;
     }
@@ -340,6 +345,7 @@ export default function ChargerSimulator({
     try {
       const stationSegment = chargerInfo?.stationId ? String(chargerInfo.stationId) : 'station';
       const ocppVersion = chargerInfo?.ocppVersion || '1.6';
+      const authToken = ocppToken?.trim() || undefined;
 
       const protocol = new OcppProtocol(backendUrl, String(chargerId), (state) => {
         const previousStatus = previousStatusRef.current;
@@ -399,7 +405,7 @@ export default function ChargerSimulator({
 
         previousStatusRef.current = state.status;
         previousSessionIdRef.current = state.sessionId ?? null;
-      }, stationSegment, ocppVersion, ocppToken);
+      }, stationSegment, ocppVersion, authToken, customWsUrl && customWsUrl.trim().length > 0 ? customWsUrl.trim() : undefined);
 
       await protocol.connect();
       ocppRef.current = protocol;
@@ -1460,37 +1466,55 @@ export default function ChargerSimulator({
       )}
 
       {/* Action buttons */}
-      <div style={{ display: 'flex', gap: '12px', position: 'relative', zIndex: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', zIndex: 1 }}>
+        <input
+          type="text"
+          placeholder="Optional full WebSocket URL (wss://...)"
+          value={customWsUrl}
+          onChange={(e) => {
+            setCustomWsUrl(e.target.value);
+            try { localStorage.setItem('sim_fullWsUrl', e.target.value); } catch {}
+          }}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            borderRadius: '8px',
+            border: '1px solid #334155',
+            background: '#0b1220',
+            color: '#e2e8f0'
+          }}
+        />
+        <div style={{ display: 'flex', gap: '12px' }}>
         {!connected ? (
           <button
             onClick={handleConnect}
-            disabled={!backendConnected}
+            disabled={!backendConnected && !customWsUrl}
             style={{
               flex: 1,
               padding: '14px 28px',
-              background: backendConnected 
-                ? 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)' 
-                : '#475569',
+              background: (!backendConnected && !customWsUrl)
+                ? '#475569'
+                : 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
               color: 'white',
               border: 'none',
               borderRadius: '10px',
               fontWeight: '700',
-              cursor: backendConnected ? 'pointer' : 'not-allowed',
+              cursor: (!backendConnected && !customWsUrl) ? 'not-allowed' : 'pointer',
               fontSize: '15px',
-              boxShadow: backendConnected ? '0 4px 14px rgba(14, 165, 233, 0.4)' : 'none',
+              boxShadow: (!backendConnected && !customWsUrl) ? 'none' : '0 4px 14px rgba(14, 165, 233, 0.4)',
               transition: 'all 0.3s ease',
-              opacity: backendConnected ? 1 : 0.6
+              opacity: (!backendConnected && !customWsUrl) ? 0.6 : 1
             }}
             onMouseEnter={(e) => {
-              if (backendConnected) {
+              if (!(!backendConnected && !customWsUrl)) {
                 e.currentTarget.style.transform = 'translateY(-2px)';
                 e.currentTarget.style.boxShadow = '0 6px 20px rgba(14, 165, 233, 0.6)';
               }
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = backendConnected 
-                ? '0 4px 14px rgba(14, 165, 233, 0.4)' 
+              e.currentTarget.style.boxShadow = !(!backendConnected && !customWsUrl)
+                ? '0 4px 14px rgba(14, 165, 233, 0.4)'
                 : 'none';
             }}
           >
@@ -1543,6 +1567,7 @@ export default function ChargerSimulator({
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

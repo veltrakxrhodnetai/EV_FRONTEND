@@ -218,9 +218,9 @@ export default function ConnectorVerificationPage(): JSX.Element {
           modal: {
             ondismiss: () => reject(new Error('Payment cancelled before authorization completed.')),
           },
-          handler: async () => {
+          handler: async (response) => {
             try {
-              await payAndStart(resolvedSessionId);
+              await payAndStart(resolvedSessionId, response.razorpay_payment_id);
               resolve();
             } catch (paymentStartError) {
               reject(paymentStartError);

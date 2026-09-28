@@ -60,7 +60,8 @@ export class OcppProtocol {
     private onStatusChange: (status: ChargerState) => void,
     private stationId: string = 'station',
     private ocppVersion: string = '1.6',
-    private authToken?: string
+    private authToken?: string,
+    private fullWsUrl?: string
   ) {
     this.configurationValues = {
       HeartbeatInterval: '60',
@@ -217,11 +218,28 @@ export class OcppProtocol {
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const baseUrl = this.backendUrl.replace(/^http/, 'ws')
-        + `/ws/ocpp/${encodeURIComponent(this.ocppVersion)}/${encodeURIComponent(this.stationId)}/${encodeURIComponent(this.chargerIdentity)}`;
-      const wsUrl = this.authToken && this.authToken.trim().length > 0
-        ? `${baseUrl}?token=${encodeURIComponent(this.authToken.trim())}`
-        : baseUrl;
+      let wsUrl: string;
+      if (this.fullWsUrl && typeof this.fullWsUrl === 'string' && this.fullWsUrl.trim().length > 0) {
+        const candidate = this.fullWsUrl.trim();
+        if (candidate.startsWith('http://')) {
+          wsUrl = candidate.replace(/^http:\/\//, 'ws://');
+        } else if (candidate.startsWith('https://')) {
+          wsUrl = candidate.replace(/^https:\/\//, 'wss://');
+        } else {
+          wsUrl = candidate;
+        }
+
+        // append token if provided and not already present
+        if (this.authToken && this.authToken.trim().length > 0 && !wsUrl.includes('token=')) {
+          wsUrl += (wsUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(this.authToken.trim())}`;
+        }
+      } else {
+        const baseUrl = this.backendUrl.replace(/^http/, 'ws')
+          + `/ws/ocpp/${encodeURIComponent(this.ocppVersion)}/${encodeURIComponent(this.stationId)}/${encodeURIComponent(this.chargerIdentity)}`;
+        wsUrl = this.authToken && this.authToken.trim().length > 0
+          ? `${baseUrl}?token=${encodeURIComponent(this.authToken.trim())}`
+          : baseUrl;
+      }
       
       try {
         this.ws = new WebSocket(wsUrl);

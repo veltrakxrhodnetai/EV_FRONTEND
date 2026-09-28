@@ -27,6 +27,8 @@ import ConnectorVerificationPage from './pages/customer/ConnectorVerificationPag
 import InvoicePage from './pages/customer/InvoicePage';
 
 import AdminLogsPage from './pages/admin/AdminLogsPage';
+import AdminUptimePage from './pages/admin/AdminUptimePage';
+import AdminSettlementPage from './pages/admin/AdminSettlementPage';
 import AdminLiteLayout from './pages/admin-lite/AdminLiteLayout';
 import AdminLiteDashboardPage from './pages/admin-lite/AdminLiteDashboardPage';
 import AdminLiteStationsPage from './pages/admin-lite/AdminLiteStationsPage';
@@ -35,6 +37,7 @@ import AdminLiteTariffsPage from './pages/admin-lite/AdminLiteTariffsPage';
 import AdminLiteOwnersPage from './pages/admin-lite/AdminLiteOwnersPage';
 import AdminLiteUsersPage from './pages/admin-lite/AdminLiteUsersPage';
 import AdminLiteOcppPage from './pages/admin-lite/AdminLiteOcppPage';
+import AdminLiteUptimePage from './pages/admin-lite/AdminLiteUptimePage';
 import { getCustomerActiveSessionId } from './utils/authSession';
 import UserHomePage from './pages/customer/UserHomePage';
 import './index.css';
@@ -173,6 +176,8 @@ export default function App(): JSX.Element {
         <Route path="rfid" element={<AdminRfidPage />} />
         <Route path="ocpp" element={<AdminOcppConfigPage />} />
         <Route path="logs" element={<AdminLogsPage />} />
+        <Route path="uptime" element={<AdminUptimePage />} />
+        <Route path="settlement" element={<AdminSettlementPage />} />
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
       </Route>
 
@@ -193,6 +198,8 @@ export default function App(): JSX.Element {
         <Route path="owners" element={<AdminLiteOwnersPage />} />
         <Route path="users" element={<AdminLiteUsersPage />} />
         <Route path="ocpp" element={<AdminLiteOcppPage />} />
+        <Route path="uptime" element={<AdminLiteUptimePage />} />
+        <Route path="settlement" element={<AdminSettlementPage />} />
         <Route index element={<Navigate to="/admin-lite/dashboard" replace />} />
       </Route>
 

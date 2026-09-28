@@ -71,10 +71,10 @@ export default function OwnerLoginPage(): JSX.Element {
           />
         </div>
 
-        <div className="mt-4 text-sm text-gray-600">
+        {/* <div className="mt-4 text-sm text-gray-600">
           <p>Demo credentials:</p>
           <p>Mobile: 9876543210, PIN: 123456</p>
-        </div>
+        </div> */}
 
         <button 
           type="submit"

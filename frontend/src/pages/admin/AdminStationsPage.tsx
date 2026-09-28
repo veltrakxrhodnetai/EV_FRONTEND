@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { createAdminStation, getAdminStations, updateAdminStation, deactivateAdminStation } from '../../api/admin';
+import { createAdminStation, getAdminStations, updateAdminStation, deactivateAdminStation, deleteAdminStation } from '../../api/admin';
 
 type Station = {
   id: number;
@@ -269,6 +269,24 @@ export default function AdminStationsPage(): JSX.Element {
     }
   };
 
+  const handleDeleteStation = async (id: number) => {
+    const ok = confirm('Delete this station and all its chargers/connectors? This action cannot be undone.');
+    if (!ok) return;
+
+    try {
+      setLoading(true);
+      setError('');
+      await deleteAdminStation(id);
+      setSuccess('Station deleted');
+      await load();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Failed to delete station');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleAmenity = (amenity: string) => {
     setForm(prev => ({
       ...prev,
@@ -413,6 +431,12 @@ export default function AdminStationsPage(): JSX.Element {
                           Deactivate
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDeleteStation(station.id)}
+                        className="text-red-700 hover:text-red-900 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))

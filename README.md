@@ -279,6 +279,21 @@ See [DEVELOPMENT.md](DEVELOPMENT.md#-troubleshooting) for more detailed troubles
 ### Frontend
 - `VITE_API_BASE_URL` — Backend API URL (default: `http://localhost:8080`, auto-detected)
 
+### Razorpay Live Setup
+- Backend payment config endpoint reads `razorpay.key-id` from `SPRING_APPLICATION_JSON`, `application.yml`, or process env mapping.
+- Set `RAZORPAY_KEY_ID` to your live Razorpay Key ID for the backend process.
+- Set `RAZORPAY_WEBHOOK_SECRET` to the live webhook secret from the Razorpay dashboard.
+- For local testing only, you can keep webhook signature mocks enabled with `APP_PAYMENT_WEBHOOK_MOCK=true`.
+- For live mode, disable mocks and validate real signatures with `APP_PAYMENT_WEBHOOK_MOCK=false` and `APP_PAYMENT_WEBHOOK_SKIP_SIGNATURE=false`.
+- The frontend can also read `VITE_RAZORPAY_KEY_ID`; this is a fallback only when the backend config endpoint does not return a key.
+
+### WebSocket / OCPP Link
+- The frontend builds the live session websocket URL from `VITE_API_BASE_URL`.
+- Example: if `VITE_API_BASE_URL=https://api.example.com`, the live session websocket becomes `wss://api.example.com/ws/sessions/{sessionId}`.
+- The admin OCPP configuration page already exposes a WebSocket URL field and quick buttons for `ws://` and `wss://`.
+- For charger configuration, use the backend OCPP endpoint format shown in the admin UI, for example `wss://api.example.com/ws/ocpp/1.6/{stationId}/{chargePointIdentity}`.
+- In production, prefer `wss://` and make sure the backend is behind TLS.
+
 ## Building for Production
 
 ### Backend

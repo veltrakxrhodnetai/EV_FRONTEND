@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getStationChargers, getStations, getStationTariff } from '../../../api/stations';
 import type { Station } from '../../../types';
+import { isAcConnector } from '../../../utils/chargerUtils';
 
 type AvailabilityFilter = 'All' | 'Available' | 'In Use' | 'Unavailable';
 
@@ -31,6 +32,30 @@ function getAvailability(station: Station): 'Available' | 'In Use' | 'Unavailabl
   if (station.totalChargers > 0) return 'In Use';
   return 'Unavailable';
 }
+
+const STATUS_STYLES: Record<string, { bar: string; badge: string; dot: string; text: string; border: string }> = {
+  Available: {
+    bar: '#22c55e',
+    badge: 'rgba(34,197,94,0.12)',
+    dot: '#4ade80',
+    text: '#4ade80',
+    border: 'rgba(34,197,94,0.3)',
+  },
+  'In Use': {
+    bar: '#f59e0b',
+    badge: 'rgba(245,158,11,0.12)',
+    dot: '#fbbf24',
+    text: '#fbbf24',
+    border: 'rgba(245,158,11,0.3)',
+  },
+  Unavailable: {
+    bar: '#475569',
+    badge: 'rgba(71,85,105,0.18)',
+    dot: '#64748b',
+    text: '#94a3b8',
+    border: 'rgba(71,85,105,0.3)',
+  },
+};
 
 export default function StationsTab(): JSX.Element {
   const navigate = useNavigate();
@@ -71,7 +96,7 @@ export default function StationsTab(): JSX.Element {
               chargers.forEach((c) => {
                 maxPowerKw = Math.max(maxPowerKw, Number(c.maxPowerKw || 0));
                 c.connectors?.forEach((cn) => {
-                  const isAc = (cn.type || '').toUpperCase().includes('AC');
+                  const isAc = isAcConnector(c.chargerType, cn.type, c.maxPowerKw);
                   const avail = (cn.status || '').toLowerCase() === 'available';
                   if (isAc) { acTotal++; if (avail) acAvailable++; }
                   else { dcTotal++; if (avail) dcAvailable++; }
@@ -125,103 +150,118 @@ export default function StationsTab(): JSX.Element {
     return result;
   }, [stations, searchTerm, filter, userLocation]);
 
-  const badgeColors: Record<string, string> = {
-    Available: 'text-emerald-400',
-    'In Use': 'text-amber-400',
-    Unavailable: 'text-slate-500',
-  };
-  const badgeBg: Record<string, string> = {
-    Available: 'rgba(16,185,129,0.15)',
-    'In Use': 'rgba(245,158,11,0.15)',
-    Unavailable: 'rgba(100,116,139,0.15)',
-  };
-  const badgeBorder: Record<string, string> = {
-    Available: 'rgba(16,185,129,0.3)',
-    'In Use': 'rgba(245,158,11,0.3)',
-    Unavailable: 'rgba(100,116,139,0.25)',
-  };
-
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: '#0f0c1a' }}>
+    <div className="flex flex-col h-full overflow-hidden" style={{ background: '#0d0b1a' }}>
       {/* Search & Filter */}
       <div
         className="shrink-0 px-4 pt-4 pb-3 space-y-3 z-10"
-        style={{ background: '#130f23', borderBottom: '1px solid rgba(111,66,224,0.18)' }}
+        style={{ background: '#110e22', borderBottom: '1px solid rgba(111,66,224,0.15)' }}
       >
+        {/* Search */}
         <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(167,139,250,0.6)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+            style={{ color: 'rgba(167,139,250,0.5)' }}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
           </svg>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, city or address..."
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm focus:outline-none"
+            placeholder="Search stations, city or address…"
+            className="w-full pl-10 pr-9 py-2.5 rounded-xl text-sm focus:outline-none"
             style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(111,66,224,0.3)',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(111,66,224,0.22)',
               color: '#f1f5f9',
             }}
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-              style={{ color: 'rgba(148,163,184,0.6)' }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(111,66,224,0.2)', color: '#a78bfa' }}
+              aria-label="Clear search"
             >
-              ✕
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as AvailabilityFilter)}
-            className="flex-1 py-2 px-3 rounded-xl text-sm focus:outline-none"
-            style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(111,66,224,0.3)',
-              color: '#f1f5f9',
-            }}
-          >
-            {FILTER_OPTIONS.map((opt) => (
-              <option key={opt} value={opt} style={{ background: '#1a1530', color: '#f1f5f9' }}>
-                {opt === 'All' ? 'All Stations' : `${opt} Only`}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs shrink-0 font-semibold" style={{ color: 'rgba(167,139,250,0.7)' }}>
-            {loading ? '...' : `${displayed.length} found`}
+        {/* Filter chips */}
+        <div className="flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {FILTER_OPTIONS.map((opt) => {
+            const active = filter === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setFilter(opt)}
+                className="shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all"
+                style={active ? {
+                  background: 'linear-gradient(135deg, #6f42e0, #a855f7)',
+                  color: 'white',
+                  boxShadow: '0 2px 10px rgba(111,66,224,0.4)',
+                } : {
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(111,66,224,0.22)',
+                  color: 'rgba(167,139,250,0.75)',
+                }}
+              >
+                {opt === 'All' ? 'All' : opt}
+              </button>
+            );
+          })}
+          <span className="ml-auto shrink-0 text-[10px] font-semibold" style={{ color: 'rgba(167,139,250,0.5)' }}>
+            {loading ? '…' : `${displayed.length} found`}
           </span>
         </div>
       </div>
 
       {/* Station List */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ background: '#0f0c1a' }}>
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {/* Skeletons */}
         {loading &&
           [1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse rounded-2xl p-5" style={{ background: '#1a1530', border: '1px solid rgba(111,66,224,0.15)' }}>
-              <div className="h-5 w-2/3 rounded mb-3" style={{ background: 'rgba(111,66,224,0.15)' }} />
-              <div className="h-3 w-1/2 rounded mb-2" style={{ background: 'rgba(111,66,224,0.1)' }} />
-              <div className="h-3 w-1/3 rounded" style={{ background: 'rgba(111,66,224,0.1)' }} />
+            <div key={i} className="animate-pulse rounded-2xl overflow-hidden" style={{ background: '#1a1530', border: '1px solid rgba(111,66,224,0.12)' }}>
+              <div className="flex">
+                <div className="w-1 self-stretch rounded-l-2xl" style={{ background: 'rgba(111,66,224,0.2)' }} />
+                <div className="flex-1 p-4">
+                  <div className="h-4 w-2/3 rounded-lg mb-2" style={{ background: 'rgba(111,66,224,0.12)' }} />
+                  <div className="h-3 w-1/3 rounded-lg mb-4" style={{ background: 'rgba(111,66,224,0.08)' }} />
+                  <div className="h-8 w-full rounded-xl" style={{ background: 'rgba(111,66,224,0.08)' }} />
+                </div>
+              </div>
             </div>
           ))}
 
+        {/* Empty state */}
         {!loading && displayed.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16" style={{ color: 'rgba(148,163,184,0.4)' }}>
-            <svg className="w-14 h-14 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="#6f42e0">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <p className="text-sm font-medium" style={{ color: 'rgba(241,245,249,0.5)' }}>No stations found</p>
-            {searchTerm && <p className="text-xs mt-1" style={{ color: 'rgba(148,163,184,0.4)' }}>Try a different search term</p>}
+          <div className="flex flex-col items-center justify-center py-20">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+              style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.2)' }}
+            >
+              <svg className="w-8 h-8" style={{ color: 'rgba(111,66,224,0.5)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold" style={{ color: 'rgba(241,245,249,0.5)' }}>No stations found</p>
+            {searchTerm && (
+              <p className="text-xs mt-1" style={{ color: 'rgba(148,163,184,0.35)' }}>Try a different search term</p>
+            )}
           </div>
         )}
 
+        {/* Cards */}
         {!loading &&
           displayed.map((station) => {
             const availability = getAvailability(station);
+            const styles = STATUS_STYLES[availability] ?? STATUS_STYLES['Unavailable'];
             const meta = stationMeta[station.id] ?? {
               maxPowerKw: 0, acTotal: 0, acAvailable: 0, dcTotal: 0, dcAvailable: 0, pricePerKwh: 0,
             };
@@ -234,70 +274,112 @@ export default function StationsTab(): JSX.Element {
             return (
               <article
                 key={station.id}
-                className="rounded-2xl p-4 cursor-pointer transition-all"
+                className="relative rounded-2xl overflow-hidden cursor-pointer transition-transform active:scale-[0.99]"
                 style={{
-                  background: '#1a1530',
-                  border: '1px solid rgba(111,66,224,0.2)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                  background: 'linear-gradient(145deg, #1c1735 0%, #16122e 100%)',
+                  border: '1px solid rgba(111,66,224,0.18)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
                 }}
                 onClick={() => navigate(`/station/${station.id}`)}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="font-bold text-base leading-tight truncate" style={{ color: '#f1f5f9' }}>{station.name}</h2>
-                    {dist !== null && (
-                      <p className="text-xs mt-0.5 font-semibold" style={{ color: '#a78bfa' }}>
-                        📍 {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`} away
-                      </p>
-                    )}
-                    <p className="text-xs mt-1 truncate" style={{ color: 'rgba(148,163,184,0.7)' }}>
-                      {station.address}{station.city ? `, ${station.city}` : ''}
-                    </p>
+                {/* Status accent bar */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-[3px]"
+                  style={{ background: styles.bar }}
+                />
+
+                <div className="pl-4 pr-4 pt-4 pb-3">
+                  {/* Top row: name + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-bold text-[15px] leading-snug truncate" style={{ color: '#f1f5f9' }}>
+                        {station.name}
+                      </h2>
+                      {dist !== null && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <svg className="w-3 h-3 shrink-0" style={{ color: '#a78bfa' }} viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                          </svg>
+                          <span className="text-[11px] font-semibold" style={{ color: '#a78bfa' }}>
+                            {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`} away
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className="shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide"
+                      style={{
+                        background: styles.badge,
+                        color: styles.text,
+                        border: `1px solid ${styles.border}`,
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: styles.dot }} />
+                      {availability}
+                    </span>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${badgeColors[availability] ?? 'text-slate-400'}`}
-                    style={{
-                      background: badgeBg[availability] ?? 'rgba(100,116,139,0.12)',
-                      border: `1px solid ${badgeBorder[availability] ?? 'rgba(100,116,139,0.2)'}`,
+
+                  {/* Address */}
+                  <p className="mt-1.5 text-[11px] leading-relaxed truncate" style={{ color: 'rgba(148,163,184,0.6)' }}>
+                    {station.address}{station.city ? `, ${station.city}` : ''}
+                  </p>
+
+                  {/* Divider */}
+                  <div className="mt-3 h-px" style={{ background: 'rgba(111,66,224,0.1)' }} />
+
+                  {/* Stats row */}
+                  <div className="mt-3 grid grid-cols-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'rgba(148,163,184,0.45)' }}>Power</p>
+                      <p className="text-[13px] font-bold mt-0.5" style={{ color: '#e2e8f0' }}>{meta.maxPowerKw || '--'} kW</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'rgba(148,163,184,0.45)' }}>AC</p>
+                      <p className="text-[13px] font-bold mt-0.5" style={{ color: '#4ade80' }}>{meta.acAvailable}/{meta.acTotal}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'rgba(148,163,184,0.45)' }}>DC</p>
+                      <p className="text-[13px] font-bold mt-0.5" style={{ color: '#fb923c' }}>{meta.dcAvailable}/{meta.dcTotal}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'rgba(148,163,184,0.45)' }}>Rate</p>
+                      <p className="text-[13px] font-bold mt-0.5" style={{ color: '#a78bfa' }}>₹{meta.pricePerKwh.toFixed(2)}</p>
+                      <p className="text-[9px]" style={{ color: 'rgba(148,163,184,0.35)' }}>/kWh</p>
+                    </div>
+                  </div>
+
+                  {/* CTA Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/station/${station.id}`); }}
+                    className="mt-3 w-full rounded-xl py-2.5 text-sm font-bold tracking-wide transition-all flex items-center justify-center gap-2"
+                    style={isAvailable ? {
+                      background: 'linear-gradient(135deg, #6f42e0 0%, #a855f7 100%)',
+                      color: 'white',
+                      boxShadow: '0 4px 16px rgba(111,66,224,0.38)',
+                    } : {
+                      background: 'rgba(111,66,224,0.08)',
+                      border: '1px solid rgba(111,66,224,0.25)',
+                      color: 'rgba(167,139,250,0.65)',
                     }}
                   >
-                    {availability}
-                  </span>
+                    {isAvailable ? (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Start Charging
+                      </>
+                    ) : (
+                      <>
+                        View Details
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
                 </div>
-
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                  <div className="rounded-xl p-2 text-center" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.15)' }}>
-                    <p className="text-[10px] mb-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>Power</p>
-                    <p className="font-bold" style={{ color: '#e2e8f0' }}>⚡ {meta.maxPowerKw || '--'} kW</p>
-                  </div>
-                  <div className="rounded-xl p-2 text-center" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.15)' }}>
-                    <p className="text-[10px] mb-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>AC / DC</p>
-                    <p className="font-bold" style={{ color: '#e2e8f0' }}>
-                      {meta.acAvailable}/{meta.acTotal} · {meta.dcAvailable}/{meta.dcTotal}
-                    </p>
-                  </div>
-                  <div className="rounded-xl p-2 text-center" style={{ background: 'rgba(111,66,224,0.1)', border: '1px solid rgba(111,66,224,0.15)' }}>
-                    <p className="text-[10px] mb-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>Rate</p>
-                    <p className="font-bold" style={{ color: '#e2e8f0' }}>₹{meta.pricePerKwh.toFixed(2)}</p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); navigate(`/station/${station.id}`); }}
-                  className="mt-3 w-full rounded-xl py-2.5 text-sm font-bold transition-all"
-                  style={isAvailable ? {
-                    background: 'linear-gradient(135deg, #6f42e0, #a855f7)',
-                    color: 'white',
-                    boxShadow: '0 4px 14px rgba(111,66,224,0.35)',
-                  } : {
-                    background: 'rgba(111,66,224,0.1)',
-                    border: '1px solid rgba(111,66,224,0.4)',
-                    color: '#a78bfa',
-                  }}
-                >
-                  {isAvailable ? '⚡ Start Charging' : 'View Details'}
-                </button>
               </article>
             );
           })}
